@@ -1,0 +1,12 @@
+{
+  "name": "graphql-demo",
+  "version": "1.0.0",
+  "main": "index.js",
+  "repository": "git@github.com:nafkhanzam/graphql-demo.git",
+  "author": "nafkhanzam <nafkhanalzamzami@gmail.com>",
+  "license": "MIT",
+  "dependencies": {
+    "apollo-server": "^3.3.0",
+    "graphql": "^15.5.3"
+  }
+}
