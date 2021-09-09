@@ -42,7 +42,23 @@ const typeDefs = gql`
     hello: String!
     allBooks: [Book!]!
     allAuthors: [Author!]!
-    bookById(id: ID): Book
+    bookById(id: Int): Book
+  }
+
+  input CreateBookInput {
+    title: String!
+    authorIds: [Int!]
+    releaseDate: String
+  }
+
+  input CreateAuthorInput {
+    name: String!
+    bookIds: [Int!]
+  }
+
+  type Mutation {
+    createBook(input: CreateBookInput!): Book
+    createAuthor(input: CreateAuthorInput!): Author
   }
 `;
 
@@ -72,6 +88,42 @@ const resolvers = {
     },
     allAuthors: () => {
       return db.authors;
+    },
+  },
+  Mutation: {
+    createBook: (_, { input }) => {
+      const bookId = db.books.length + 1;
+      const book = {
+        id: bookId,
+        ...input,
+      };
+      db.books.push(book);
+      if (input.authorIds) {
+        db.books_authors.push(
+          ...input.authorIds.map((authorId) => ({
+            bookId,
+            authorId,
+          })),
+        );
+      }
+      return book;
+    },
+    createAuthor: (_, { input }) => {
+      const authorId = db.authors.length + 1;
+      const author = {
+        id: authorId,
+        ...input,
+      };
+      db.authors.push(author);
+      if (input.bookIds) {
+        db.books_authors.push(
+          ...input.bookIds.map((bookId) => ({
+            bookId,
+            authorId,
+          })),
+        );
+      }
+      return author;
     },
   },
 };
