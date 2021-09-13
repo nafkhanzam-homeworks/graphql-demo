@@ -58,7 +58,10 @@ const typeDefs = gql`
 
   type Mutation {
     createBook(input: CreateBookInput!): Book
+    updateBook(id: ID!, input: CreateBookInput!): Book
+    deleteBook(id: ID!): Book
     createAuthor(input: CreateAuthorInput!): Author
+    updateAuthor(id: ID!, input: CreateAuthorInput!): Author
   }
 `;
 
@@ -106,6 +109,40 @@ const resolvers = {
           })),
         );
       }
+      return book;
+    },
+    updateBook: (_, { id: _id, input }) => {
+      const id = Number(_id);
+      const filtered = db.books.filter((v) => v.id === id);
+      const book = filtered[0];
+      if (!book) {
+        throw new Error(`Not Found!`);
+      }
+      db.books = filtered;
+      const newBook = {
+        id,
+        ...input,
+      };
+      db.books.push(newBook);
+      if (input.authorIds) {
+        db.books_authors = db.books_authors.filter((v) => v.bookId === id);
+        db.books_authors.push(
+          ...input.authorIds.map((authorId) => ({
+            bookId,
+            authorId,
+          })),
+        );
+      }
+      return newBook;
+    },
+    deleteBook: (_, { id: _id }) => {
+      const id = Number(_id);
+      const filtered = db.books.filter((v) => v.id === id);
+      const book = filtered[0];
+      if (!book) {
+        throw new Error(`Not Found!`);
+      }
+      db.books_authors = db.books_authors.filter((v) => v.bookId === id);
       return book;
     },
     createAuthor: (_, { input }) => {
