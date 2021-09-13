@@ -6,7 +6,12 @@
   "author": "nafkhanzam <nafkhanalzamzami@gmail.com>",
   "license": "MIT",
   "dependencies": {
+    "@graphql-tools/schema": "^8.2.0",
     "apollo-server": "^3.3.0",
-    "graphql": "^15.5.3"
+    "apollo-server-express": "^3.3.0",
+    "cors": "^2.8.5",
+    "graphql": "^15.5.3",
+    "graphql-subscriptions": "^1.2.1",
+    "subscriptions-transport-ws": "^0.9.19"
   }
 }

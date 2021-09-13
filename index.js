@@ -1,4 +1,13 @@
-const { gql, ApolloServer } = require("apollo-server");
+const { createServer } = require("http");
+const express = require("express");
+const { execute, subscribe } = require("graphql");
+const { SubscriptionServer } = require("subscriptions-transport-ws");
+const { makeExecutableSchema } = require("@graphql-tools/schema");
+const { gql, ApolloServer } = require("apollo-server-express");
+const { PubSub } = require("graphql-subscriptions");
+const cors = require("cors");
+
+const pubsub = new PubSub();
 
 const db = {
   books: [
@@ -57,11 +66,15 @@ const typeDefs = gql`
   }
 
   type Mutation {
-    createBook(input: CreateBookInput!): Book
-    updateBook(id: ID!, input: CreateBookInput!): Book
-    deleteBook(id: ID!): Book
-    createAuthor(input: CreateAuthorInput!): Author
-    updateAuthor(id: ID!, input: CreateAuthorInput!): Author
+    createBook(input: CreateBookInput!): Book!
+    updateBook(id: ID!, input: CreateBookInput!): Book!
+    deleteBook(id: ID!): Book!
+    createAuthor(input: CreateAuthorInput!): Author!
+    updateAuthor(id: ID!, input: CreateAuthorInput!): Author!
+  }
+
+  type Subscription {
+    bookCreated: Book!
   }
 `;
 
@@ -109,6 +122,9 @@ const resolvers = {
           })),
         );
       }
+      pubsub.publish("BOOK_CREATED", {
+        bookCreated: book,
+      });
       return book;
     },
     updateBook: (_, { id: _id, input }) => {
@@ -118,17 +134,17 @@ const resolvers = {
       if (!book) {
         throw new Error(`Not Found!`);
       }
-      db.books = filtered;
+      db.books = db.books.filter((v) => v.id !== id);
       const newBook = {
         id,
         ...input,
       };
       db.books.push(newBook);
       if (input.authorIds) {
-        db.books_authors = db.books_authors.filter((v) => v.bookId === id);
+        db.books_authors = db.books_authors.filter((v) => v.bookId !== id);
         db.books_authors.push(
           ...input.authorIds.map((authorId) => ({
-            bookId,
+            bookId: book.id,
             authorId,
           })),
         );
@@ -142,7 +158,8 @@ const resolvers = {
       if (!book) {
         throw new Error(`Not Found!`);
       }
-      db.books_authors = db.books_authors.filter((v) => v.bookId === id);
+      db.books = db.books.filter((v) => v.id !== id);
+      db.books_authors = db.books_authors.filter((v) => v.bookId !== id);
       return book;
     },
     createAuthor: (_, { input }) => {
@@ -163,9 +180,49 @@ const resolvers = {
       return author;
     },
   },
+  Subscription: {
+    bookCreated: {
+      subscribe: () => pubsub.asyncIterator(["BOOK_CREATED"]),
+    },
+  },
 };
 
-const server = new ApolloServer({ typeDefs, resolvers });
-server.listen(4000).then(({ url }) => {
-  console.log(`Server started at ${url}`);
-});
+(async function () {
+  const app = express();
+
+  app.use(cors());
+
+  const httpServer = createServer(app);
+
+  const schema = makeExecutableSchema({
+    typeDefs,
+    resolvers,
+  });
+
+  const subscriptionServer = SubscriptionServer.create(
+    { schema, execute, subscribe },
+    { server: httpServer, path: "/graphql" },
+  );
+
+  const server = new ApolloServer({
+    schema,
+    plugins: [
+      {
+        async serverWillStart() {
+          return {
+            async drainServer() {
+              subscriptionServer.close();
+            },
+          };
+        },
+      },
+    ],
+  });
+  await server.start();
+  server.applyMiddleware({ app });
+
+  const PORT = 4000;
+  httpServer.listen(PORT, () =>
+    console.log(`Server is now running on http://localhost:${PORT}/graphql`),
+  );
+})();
